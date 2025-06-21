@@ -1,15 +1,17 @@
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  
 import numpy as np
 import joblib
 
 #LOAD DATA 
 dataset = pd.read_csv(r"C:\Users\Jyoti\OneDrive\Desktop\ML PROJECTS\Breast_cancer_prediction\data\data.csv")
-dataset.drop(columns="Unnamed: 32", inplace=True)
+# Drop unnecessary columns
+dataset.drop(columns=["Unnamed: 32", "id"], inplace=True)
+
 
 # ENCODING 
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder 
 encoder = LabelEncoder()
 dataset['diagnosis'] = encoder.fit_transform(dataset['diagnosis'])
 
@@ -32,22 +34,34 @@ from imblearn.over_sampling import SMOTE
 sm = SMOTE(random_state=42)
 X, y = sm.fit_resample(X, y)
 
-#  SCALING + TRANSFORM 
-from sklearn.preprocessing import StandardScaler, FunctionTransformer
-scaler = StandardScaler()
-X = scaler.fit_transform(X)
-
-transformer = FunctionTransformer(np.log1p)
-X = transformer.fit_transform(X)
-
 #FEATURE SELECTION 
 from mlxtend.feature_selection import SequentialFeatureSelector
 from sklearn.ensemble import RandomForestClassifier
 fs_model = RandomForestClassifier(max_depth=5, n_estimators=100, random_state=42)
 sfs = SequentialFeatureSelector(fs_model, k_features=7, forward=True, verbose=2)
 sfs.fit(X, y)
-X = X[:, list(sfs.k_feature_idx_)]
-print("Selected Features:", sfs.k_feature_names_)
+
+# Get selected feature names
+feature_names = dataset.drop(columns=['diagnosis']).columns
+selected_indices = list(sfs.k_feature_idx_)  
+selected_features= [feature_names[i] for i in selected_indices]
+print("Selected Feature Names:", selected_features)
+import joblib
+joblib.dump(selected_features, 'model/selected_features.pkl')
+print("Selected features saved to model/selected_features.pkl ✅") 
+
+X_selected = pd.DataFrame(X, columns=feature_names)[selected_features] 
+
+#  SCALING + TRANSFORM 
+from sklearn.preprocessing import StandardScaler, FunctionTransformer
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_selected)
+
+transformer = FunctionTransformer(np.log1p)
+X = transformer.fit_transform(X_scaled)
+import joblib
+joblib.dump(scaler, 'model/scaler.pkl')
+print("Scaler saved to model/scaler.pkl ✅")
 
 # SPLIT DATA 
 from sklearn.model_selection import train_test_split
